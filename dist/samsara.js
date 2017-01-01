@@ -4603,7 +4603,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.attributes = {};
 	        this.classList = [];
 	        this.content = '';
-	        this._cachedSize = null;
+	        this._cachedSpec = {};
 	        this._allocator = null;
 	        this._currentTarget = null;
 	        this._elementOutput = new DOMOutput();
@@ -4650,18 +4650,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        this.layout.on('start', function(){
 	            if (!this._currentTarget) return;
-	            this._elementOutput.promoteLayer(this._currentTarget);
+	            DOMOutput.promoteLayer(this._currentTarget);
 	        }.bind(this));
 
 	        this.layout.on('update', function(layout){
 	            if (!this._currentTarget) return;
-	            this._elementOutput.commitLayout(this._currentTarget, layout);
+	            this._elementOutput.commitLayout(this._currentTarget, layout, this._cachedSpec);
 	        }.bind(this));
 
 	        this.layout.on('end', function(layout){
 	            if (!this._currentTarget) return;
-	            this._elementOutput.commitLayout(this._currentTarget, layout);
-	            this._elementOutput.demoteLayer(this._currentTarget);
+	            this._elementOutput.commitLayout(this._currentTarget, layout, this._cachedSpec);
+	            DOMOutput.demoteLayer(this._currentTarget);
 	        }.bind(this));
 
 	        this.size.on('start', commitSize.bind(this));
@@ -4671,16 +4671,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if (options) this.setOptions(options);
 	    }
 
-	    Surface.prototype = Object.create(DOMOutput.prototype);
-	    Surface.prototype.constructor = Surface;
 	    Surface.prototype.elementType = 'div'; // Default tagName. Can be overridden in options.
 	    Surface.prototype.elementClass = 'samsara-surface';
 
 	    function commitSize(size){
 	        if (!this._currentTarget) return;
-	        var shouldResize = this._elementOutput.commitSize(this._currentTarget, size);
+	        var prevSize = this._cachedSpec.size;
+	        var shouldResize = this._elementOutput.commitSize(this._currentTarget, size, prevSize);
 	        this._cachedSize = size;
-	        if (shouldResize) this.emit('resize', size);
+	        if (shouldResize) {
+	            this._cachedSpec.size = size;
+	            this.emit('resize', size);
+	        }
 	    }
 
 	    function enableScroll(){
@@ -4716,14 +4718,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @method setContent
 	     * @param content {String|DocumentFragment} HTML content
+	     * @param callback {Function}
 	     */
-	    Surface.prototype.setContent = function setContent(content){
+	    Surface.prototype.setContent = function setContent(content,callback){
 	        if (this.content !== content){
 	            this.content = content;
 
 	            if (this._currentTarget){
 	                dirtyQueue.push(function(){
-	                    this._elementOutput.applyContent(this._currentTarget, content);
+	                    DOMOutput.applyContent(this._currentTarget, content);
+	                    if(typeof callback === 'function') {
+	                      callback(this._currentTarget);
+	                    }
 	                }.bind(this));
 	            }
 	        }
@@ -4753,7 +4759,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        if (this._currentTarget){
 	            dirtyQueue.push(function(){
-	                this._elementOutput.applyAttributes(this._currentTarget, attributes);
+	                DOMOutput.applyAttributes(this._currentTarget, attributes);
 	            }.bind(this));
 	        }
 	    };
@@ -4781,7 +4787,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        if (this._currentTarget){
 	            dirtyQueue.push(function(){
-	                this._elementOutput.applyProperties(this._currentTarget, properties);
+	                DOMOutput.applyProperties(this._currentTarget, properties);
 	            }.bind(this));
 	        }
 	    };
@@ -4808,7 +4814,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	            if (this._currentTarget){
 	                dirtyQueue.push(function(){
-	                    this._elementOutput.applyClasses(this._currentTarget, this.classList);
+	                    DOMOutput.applyClasses(this._currentTarget, this.classList);
 	                }.bind(this));
 	            }
 	        }
@@ -4826,7 +4832,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            this.classList.splice(i, 1);
 	            if (this._currentTarget){
 	                dirtyQueue.push(function(){
-	                    this._elementOutput.removeClasses(this._currentTarget, this.classList);
+	                    DOMOutput.removeClasses(this._currentTarget, this.classList);
 	                }.bind(this));
 	            }
 	        }
@@ -4876,7 +4882,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    Surface.prototype.querySelector = function querySelector(selector){
 	        if (this._currentTarget)
-	            return this._elementOutput.querySelector(this._currentTarget, selector);
+	            return DOMOutput.querySelector(this._currentTarget, selector);
 	    };
 
 	    /**
@@ -4888,7 +4894,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    Surface.prototype.querySelectorAll = function querySelectorAll(selector){
 	        if (this._currentTarget)
-	            return this._elementOutput.querySelectorAll(this._currentTarget, selector);
+	            return DOMOutput.querySelectorAll(this._currentTarget, selector);
 	    };
 
 	    /**
@@ -4923,7 +4929,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    Surface.prototype.on = function on(type, handler) {
 	        if (this._currentTarget)
-	            this._elementOutput.on(this._currentTarget, type, this._eventForwarder);
+	            DOMOutput.on(this._currentTarget, type, this._eventForwarder);
 	        EventHandler.prototype.on.apply(this._eventOutput, arguments);
 	    };
 
@@ -4951,7 +4957,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    Surface.prototype.off = function off(type, handler) {
 	        if (this._currentTarget)
-	            this._elementOutput.off(this._currentTarget, type, this._eventForwarder);
+	            DOMOutput.off(this._currentTarget, type, this._eventForwarder);
 	        EventHandler.prototype.off.apply(this._eventOutput, arguments);
 	    };
 
@@ -4984,7 +4990,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 
 	        for (var type in this._eventOutput.listeners)
-	            this._elementOutput.on(target, type, this._eventForwarder);
+	            DOMOutput.on(target, type, this._eventForwarder);
 
 	        this.deploy(this._currentTarget);
 	    };
@@ -5002,7 +5008,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if (!target) return;
 
 	        for (var type in this._eventOutput.listeners)
-	            this._elementOutput.off(target, type, this._eventForwarder);
+	            DOMOutput.off(target, type, this._eventForwarder);
 
 	        // cache the target's contents for later deployment
 	        this.recall(target);
@@ -5010,6 +5016,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this._allocator.deallocate(target);
 	        this._allocator = null;
 
+	        this._cachedSpec = {};
 	        this._currentTarget = null;
 	    };
 
@@ -5021,11 +5028,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param target {Node} DOM element to set content into
 	     */
 	    Surface.prototype.deploy = function deploy(target) {
-	        this._elementOutput.makeVisible(target);
-	        this._elementOutput.applyClasses(target, this.classList);
-	        this._elementOutput.applyProperties(target, this.properties);
-	        this._elementOutput.applyAttributes(target, this.attributes);
-	        this._elementOutput.applyContent(target, this.content);
+	        DOMOutput.makeVisible(target, this._cachedSize);
+	        DOMOutput.applyClasses(target, this.classList);
+	        DOMOutput.applyProperties(target, this.properties);
+	        DOMOutput.applyAttributes(target, this.attributes);
+	        DOMOutput.applyContent(target, this.content);
 
 	        this._eventOutput.emit('deploy', target);
 	    };
@@ -5040,11 +5047,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Surface.prototype.recall = function recall(target) {
 	        this._eventOutput.emit('recall');
 
-	        this._elementOutput.removeClasses(target, this.classList);
-	        this._elementOutput.removeProperties(target, this.properties);
-	        this._elementOutput.removeAttributes(target, this.attributes);
-	        this.content = this._elementOutput.recallContent(target);
-	        this._elementOutput.makeInvisible(target);
+	        DOMOutput.demoteLayer(target);
+	        DOMOutput.removeClasses(target, this.classList);
+	        DOMOutput.removeProperties(target, this.properties);
+	        DOMOutput.removeAttributes(target, this.attributes);
+	        DOMOutput.makeInvisible(target);
+	        this.content = DOMOutput.recallContent(target);
 	    };
 
 	    /**
@@ -5137,11 +5145,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var Transform = __webpack_require__(9);
 
 	    var usePrefix = !('transform' in window.document.documentElement.style);
+	    var usePrefixPerspective = !('perspective' in window.document.documentElement.style);
+
 	    var devicePixelRatio = 2 * (window.devicePixelRatio || 1);
 	    var MIN_OPACITY = 0.0001;
 	    var MAX_OPACITY = 0.9999;
 	    var EPSILON = 1e-5;
-	    var _zeroZero = [0, 0];
+	    var zeroArray = [0, 0];
 
 	    var stringMatrix3d = 'matrix3d(';
 	    var stringComma = ',';
@@ -5160,15 +5170,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @uses Core.LayoutNode
 	     * @uses Core.SizeNode
 	     * @private
-	     * @param {Node} element document parent of this container
+	     * @param [options] {Object}                Options
+	     * @param [options.roundToPixel] {Boolean}  Prevents text-blurring if set to true, at the cost to jittery animation
 	     */
-	    function DOMOutput() {
-	        this._cachedSpec = {};
+	    function DOMOutput(options) {
+	        options = options || {};
 	        this._opacityDirty = true;
 	        this._originDirty = true;
 	        this._transformDirty = true;
 	        this._isVisible = true;
-	        this._roundToPixel = false;
+	        this._roundToPixel = options.roundToPixel || false;
 	    }
 
 	    function _round(value, unit){
@@ -5196,7 +5207,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return (a && b) ? (a[0] !== b[0] || a[1] !== b[1]) : a !== b;
 	    }
 
-	    var _setOrigin = usePrefix
+	    var _setOrigin = (usePrefix)
 	        ? function _setOrigin(element, origin) {
 	            element.style.webkitTransformOrigin = _formatCSSOrigin(origin);
 	        }
@@ -5212,12 +5223,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	            element.style.transform = _formatCSSTransform(transform, unit);
 	        };
 
-	    function _setSize(target, size){
-	        if (size[0] === true) size[0] = target.offsetWidth;
-	        else if (size[0] >= 0) target.style.width = size[0] + stringPx;
+	    var _setPerspective = (usePrefixPerspective)
+	        ? function setPerspective(element, perspective) {
+	            element.style.webkitPerspective = perspective ? (perspective | 0) + 'px' : '0px';
+	        }
+	        : function setPerspective(element, perspective) {
+	            element.style.perspective = perspective ? (perspective | 0) + 'px' : '0px';
+	        };
 
-	        if (size[1] === true) size[1] = target.offsetHeight;
-	        else if (size[1] >= 0) target.style.height = size[1] + stringPx;
+	    var _setPerspectiveOrigin = (usePrefixPerspective)
+	        ? function setPerspectiveOrigin(element, origin) {
+	            element.style.webkitPerspectiveOrigin = origin ? _formatCSSOrigin(origin) : '50% 50%';
+	        }
+	        : function setPerspectiveOrigin(element, origin) {
+	            element.style.perspectiveOrigin = origin ? _formatCSSOrigin(origin) : '50% 50%';
+	        };
+
+	    function _setSize(element, size){
+	        if (size[0] === true) size[0] = element.offsetWidth;
+	        else if (size[0] >= 0) element.style.width = size[0] + stringPx;
+
+	        if (size[1] === true) size[1] = element.offsetHeight;
+	        else if (size[1] >= 0) element.style.height = size[1] + stringPx;
 	    }
 
 	    // pointerEvents logic allows for DOM events to pass through the element when invisible
@@ -5239,118 +5266,145 @@ return /******/ (function(modules) { // webpackBootstrap
 	        element.style.opacity = opacity;
 	    }
 
-	    DOMOutput.prototype.querySelector = function querySelector(target, selector){
-	        return target.querySelector(selector);
+	    DOMOutput.getWidth = function getWidth(element){
+	        return element.clientWidth;
 	    };
 
-	    DOMOutput.prototype.querySelectorAll = function querySelectorAll(target, selector){
-	        return target.querySelectorAll(selector);
+	    DOMOutput.getHeight = function getHeight(element){
+	        return element.clientHeight;
 	    };
 
-	    DOMOutput.prototype.applyClasses = function applyClasses(target, classList) {
+	    DOMOutput.getSize = function getSize(element){
+	        return [this.getWidth(element), this.getHeight(element)];
+	    };
+
+	    DOMOutput.querySelector = function querySelector(element, selector){
+	        return element.querySelector(selector);
+	    };
+
+	    DOMOutput.querySelectorAll = function querySelectorAll(element, selector){
+	        return element.querySelectorAll(selector);
+	    };
+
+	    DOMOutput.applyClasses = function applyClasses(element, classList) {
 	        for (var i = 0; i < classList.length; i++)
-	            target.classList.add(classList[i]);
+	            element.classList.add(classList[i]);
 	    };
 
-	    DOMOutput.prototype.applyProperties = function applyProperties(target, properties) {
+	    DOMOutput.applyClass = function applyClass(element, className) {
+	        element.classList.add(className);
+	    };
+
+	    DOMOutput.applyProperties = function applyProperties(element, properties) {
 	        for (var key in properties)
-	            target.style[key] = properties[key];
+	            element.style[key] = properties[key];
 	    };
 
-	    DOMOutput.prototype.applyAttributes = function applyAttributes(target, attributes) {
+	    DOMOutput.applyAttributes = function applyAttributes(element, attributes) {
 	        for (var key in attributes)
-	            target.setAttribute(key, attributes[key]);
+	            element.setAttribute(key, attributes[key]);
 	    };
 
-	    DOMOutput.prototype.removeClasses = function removeClasses(target, classList) {
+	    DOMOutput.removeClass = function removeClasses(element, className) {
+	        element.classList.remove(className);
+	    };
+
+	    DOMOutput.removeClasses = function removeClasses(element, classList) {
 	        for (var i = 0; i < classList.length; i++)
-	            target.classList.remove(classList[i]);
+	            element.classList.remove(classList[i]);
 	    };
 
-	    DOMOutput.prototype.removeProperties = function removeProperties(target, properties) {
+	    DOMOutput.removeProperties = function removeProperties(element, properties) {
 	        for (var key in properties)
-	            target.style[key] = '';
+	            element.style[key] = '';
 	    };
 
-	    DOMOutput.prototype.removeAttributes = function removeAttributes(target, attributes) {
+	    DOMOutput.removeAttributes = function removeAttributes(element, attributes) {
 	        for (var key in attributes)
-	            target.removeAttribute(key);
+	            element.removeAttribute(key);
 	    };
 
-	    DOMOutput.prototype.on = function on(target, type, handler) {
-	        target.addEventListener(type, handler);
+	    DOMOutput.on = function on(element, type, handler, useCapture) {
+	        element.addEventListener(type, handler, useCapture || false);
 	    };
 
-	    DOMOutput.prototype.off = function off(target, type, handler) {
-	        target.removeEventListener(type, handler);
+	    DOMOutput.off = function off(element, type, handler) {
+	        element.removeEventListener(type, handler);
 	    };
 
-	    DOMOutput.prototype.applyContent = function applyContent(target, content) {
+	    DOMOutput.applyContent = function applyContent(element, content) {
 	        if (content instanceof Node) {
-	            while (target.hasChildNodes()) target.removeChild(target.firstChild);
-	            target.appendChild(content);
+	            while (element.hasChildNodes()) element.removeChild(element.firstChild);
+	            element.appendChild(content);
 	        }
-	        else target.innerHTML = content;
+	        else element.innerHTML = content;
 	    };
 
-	    DOMOutput.prototype.recallContent = function recallContent(target) {
+	    DOMOutput.recallContent = function recallContent(element) {
 	        var df = document.createDocumentFragment();
-	        while (target.hasChildNodes()) df.appendChild(target.firstChild);
+	        while (element.hasChildNodes()) df.appendChild(element.firstChild);
 	        return df;
 	    };
 
-	    DOMOutput.prototype.makeVisible = function makeVisible(target){
-	        target.style.display = '';
+	    DOMOutput.promoteLayer = function (element){
+	        element.style.willChange = 'transform, opacity';
+	    };
+
+	    DOMOutput.demoteLayer = function(element) {
+	        element.style.willChange = '';
+	    };
+
+	    DOMOutput.makeVisible = function makeVisible(element, size){
+	        element.style.display = '';
 
 	        // for true-sized elements, reset height and width
-	        if (this._cachedSize) {
-	            if (this._cachedSize[0] === true) target.style.width = 'auto';
-	            if (this._cachedSize[1] === true) target.style.height = 'auto';
+	        if (size){
+	            if (size[0] === true) element.style.width = 'auto';
+	            if (size[1] === true) element.style.height = 'auto';
 	        }
 	    };
 
-	    DOMOutput.prototype.makeInvisible = function makeInvisible(target){
-	        target.style.display = 'none';
-	        target.style.opacity = '';
-	        target.style.width = '';
-	        target.style.height = '';
+	    DOMOutput.makeInvisible = function makeInvisible(element){
+	        element.style.display = 'none';
+	        element.style.opacity = '';
+	        element.style.width = '';
+	        element.style.height = '';
 
 	        if (usePrefix) {
-	            target.style.webkitTransform = '';
-	            target.style.webkitTransformOrigin = '';
+	            element.style.webkitTransform = '';
+	            element.style.webkitTransformOrigin = '';
 	        }
 	        else {
-	            target.style.transform = '';
-	            target.style.transformOrigin = '';
+	            element.style.transform = '';
+	            element.style.transformOrigin = '';
 	        }
-
-	        this._cachedSpec = {};
 	    };
 
-	    DOMOutput.prototype.commitLayout = function commitLayout(target, layout) {
-	        var cache = this._cachedSpec;
+	    DOMOutput.prototype.commitPerspective = _setPerspective;
+	    DOMOutput.prototype.commitPerspectiveOrigin = _setPerspectiveOrigin;
 
+	    DOMOutput.prototype.commitLayout = function commitLayout(element, layout, prevLayout) {
 	        var transform = layout.transform || Transform.identity;
 	        var opacity = (layout.opacity === undefined) ? 1 : layout.opacity;
-	        var origin = layout.origin || _zeroZero;
+	        var origin = layout.origin || zeroArray;
 
-	        this._transformDirty = Transform.notEquals(cache.transform, transform);
-	        this._opacityDirty = this._opacityDirty || (cache.opacity !== opacity);
-	        this._originDirty = this._originDirty || (origin && _xyNotEquals(cache.origin, origin));
+	        this._transformDirty = Transform.notEquals(prevLayout.transform, transform);
+	        this._opacityDirty = this._opacityDirty || (prevLayout.opacity !== opacity);
+	        this._originDirty = this._originDirty || (prevLayout && _xyNotEquals(prevLayout.origin, origin));
 
 	        if (this._opacityDirty) {
-	            cache.opacity = opacity;
-	            _setOpacity.call(this, target, opacity);
+	            prevLayout.opacity = opacity;
+	            _setOpacity.call(this, element, opacity);
 	        }
 
 	        if (this._originDirty){
-	            cache.origin = origin;
-	            _setOrigin(target, origin);
+	            prevLayout.origin = origin;
+	            _setOrigin(element, origin);
 	        }
 
 	        if (this._transformDirty) {
-	            cache.transform = transform;
-	            _setTransform(target, transform, this._roundToPixel ? 1 : devicePixelRatio);
+	            prevLayout.transform = transform;
+	            _setTransform(element, transform, this._roundToPixel ? 1 : devicePixelRatio);
 	        }
 
 	        this._originDirty = false;
@@ -5358,24 +5412,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this._opacityDirty = false;
 	    };
 
-	    DOMOutput.prototype.commitSize = function commitSize(target, size){
+	    DOMOutput.prototype.commitSize = function commitSize(element, size, prevSize){
 	        if (size[0] !== true) size[0] = _round(size[0], devicePixelRatio);
 	        if (size[1] !== true) size[1] = _round(size[1], devicePixelRatio);
 
-	        if (_xyNotEquals(this._cachedSpec.size, size)){
-	            this._cachedSpec.size = size;
-	            _setSize(target, size);
+	        if (_xyNotEquals(prevSize, size)){
+	            _setSize(element, size);
 	            return true;
 	        }
 	        else return false;
-	    };
-
-	    DOMOutput.prototype.promoteLayer = function (target){
-	        target.style.willChange = 'transform, opacity';
-	    };
-
-	    DOMOutput.prototype.demoteLayer = function(target) {
-	        target.style.willChange = 'auto';
 	    };
 
 	    module.exports = DOMOutput;
@@ -5504,6 +5549,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// TODO: Enable CSS properties on Context
 	!(__WEBPACK_AMD_DEFINE_RESULT__ = function(require, exports, module) {
 	    var DOMAllocator = __webpack_require__(40);
+	    var DOMOutput = __webpack_require__(37);
 	    var Engine = __webpack_require__(2);
 	    var RootNode = __webpack_require__(41);
 	    var Transitionable = __webpack_require__(11);
@@ -5544,6 +5590,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.options = OptionsManager.setOptions(this, options, Context.DEFAULT_OPTIONS);
 	        this._node = new RootNode();
 
+	        this.container = null;
+	        this._domOutput = new DOMOutput();
+
 	        this._size = new SimpleStream();
 	        this._layout = new SimpleStream();
 
@@ -5555,8 +5604,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	                return this._cachedSize;
 	            }
 
-	            var width = this.container.clientWidth;
-	            var height = this.container.clientHeight;
+	            var width = DOMOutput.getWidth(this.container);
+	            var height = DOMOutput.getHeight(this.container);
 
 	            if (width !== this._cachedSize[0] || height !== this._cachedSize[1]){
 	                this._cachedSize[0] = width;
@@ -5598,7 +5647,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // Prevents dragging of entire page
 	        if (this.options.enableScroll === false){
 	            this.on('deploy', function(target) {
-	                target.addEventListener('touchmove', function(event) {
+	                DOMOutput.on(target, 'touchmove', function(event){
 	                    event.preventDefault();
 	                }, false);
 	            });
@@ -5624,21 +5673,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return RootNode.prototype.add.apply(this._node, arguments);
 	    };
 
-	    Context.prototype.remove = function remove(){
-	        if (this.elementClass instanceof Array){
-	            for (var i = 0; i < this.elementClass.length; i++)
-	                this.container.classList.remove(this.elementClass[i])
-	        }
-	        else this.container.classList.remove(this.elementClass);
-
-	        this._node.remove();
-
-	        while (this.container.hasChildNodes())
-	            this.container.removeChild(this.container.firstChild);
-
-	        Engine.deregisterContext(this);
-	    };
-
 	    /**
 	     * Pull the perspective value from a transitionable.
 	     *
@@ -5646,14 +5680,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param perspective {Transitionable}    Perspective transitionable
 	     */
 	    Context.prototype.perspectiveFrom = function perspectiveFrom(perspective){
+	        this._perspective.unsubscribe();
 	        this._perspective = perspective;
 
 	        this._perspective.on('update', function(perspective){
-	            setPerspective(this.container, perspective);
+	            this._domOutput.commitPerspective(this.container, perspective);
 	        }.bind(this));
 
 	        this._perspective.on('end', function(perspective){
-	            setPerspective(this.container, perspective);
+	            this._domOutput.commitPerspective(this.container, perspective);
 	        }.bind(this));
 	    };
 
@@ -5664,14 +5699,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param perspectiveOrigin {Transitionable}    Perspective-origin transitionable
 	     */
 	    Context.prototype.perspectiveOriginFrom = function perspectiveOriginFrom(perspectiveOrigin){
+	        this._perspectiveOrigin.unsubscribe();
 	        this._perspectiveOrigin = perspectiveOrigin;
 
 	        this._perspectiveOrigin.on('update', function(origin){
-	            setPerspectiveOrigin(this.container, origin);
+	            this._domOutput.commitPerspectiveOrigin(this.container, origin);
 	        }.bind(this));
 
 	        this._perspectiveOrigin.on('end', function(origin){
-	            setPerspectiveOrigin(this.container, origin);
+	            this._domOutput.commitPerspectiveOrigin(this.container, origin);
 	        }.bind(this));
 	    };
 
@@ -5732,11 +5768,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        this.container = node;
 
-	        if (this.elementClass instanceof Array) {
-	            for (var i = 0; i < this.elementClass.length; i++)
-	                this.container.classList.add(this.elementClass[i])
-	        }
-	        else this.container.classList.add(this.elementClass);
+	        (this.elementClass instanceof Array)
+	            ? DOMOutput.applyClasses(this.container, this.elementClass)
+	            : DOMOutput.applyClass(this.container, this.elementClass);
 
 	        var allocator = new DOMAllocator(this.container);
 	        this._node.setAllocator(allocator);
@@ -5747,6 +5781,26 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.emit('deploy', this.container);
 
 	        Engine.registerContext(this);
+	    };
+
+	    /**
+	     * Clear the HTML contents of the Context and remove it from the Render Tree.
+	     *  The Context can be added to the render tree again and all its data (properties, event listeners, etc)
+	     *  will be restored.
+	     *
+	     * @method remove
+	     */
+	    Context.prototype.remove = function remove(){
+	        (this.elementClass instanceof Array)
+	            ? DOMOutput.removeClasses(this.container, this.elementClass)
+	            : DOMOutput.removeClass(this.container, this.elementClass);
+
+	        this._node.remove();
+
+	        //TODO add ability to resurrect content
+	        DOMOutput.recallContent(this.container);
+
+	        Engine.deregisterContext(this);
 	    };
 
 	    /**
@@ -5792,28 +5846,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Context.prototype.emit = function emit(type, payload) {
 	        EventHandler.prototype.emit.apply(this._eventOutput, arguments);
 	    };
-
-	    var usePrefix = !('perspective' in window.document.documentElement.style);
-
-	    var setPerspective = usePrefix
-	        ? function setPerspective(element, perspective) {
-	            element.style.webkitPerspective = perspective ? (perspective | 0) + 'px' : '0px';
-	        }
-	        : function setPerspective(element, perspective) {
-	            element.style.perspective = perspective ? (perspective | 0) + 'px' : '0px';
-	        };
-
-	    function _formatCSSOrigin(origin) {
-	        return (100 * origin[0]) + '% ' + (100 * origin[1]) + '%';
-	    }
-
-	    var setPerspectiveOrigin = usePrefix
-	        ? function setPerspectiveOrigin(element, origin) {
-	            element.style.webkitPerspectiveOrigin = origin ? _formatCSSOrigin(origin) : '50% 50%';
-	        }
-	        : function setPerspectiveOrigin(element, origin) {
-	            element.style.perspectiveOrigin = origin ? _formatCSSOrigin(origin) : '50% 50%';
-	        };
 
 	    module.exports = Context;
 	}.call(exports, __webpack_require__, exports, module), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
@@ -10432,13 +10464,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	            // at end of zooming (on pinch), apply inertia to zoom
 	            zoomInput.on('end', function(data){
-	                if (!zoomInertia){
+	                if (!zoomInertia || data.velocity === 0){
 	                    this.emit('end', {
 	                        position: this.getPosition(),
 	                        orientation: this.getOrientation()
 	                    });
 	                }
-	                else if (data.velocity !== 0){
+	                else {
 	                    var z = this.getPosition()[2];
 	                    zoomInertia.reset(z);
 	                    zoomInertia.set(z, {

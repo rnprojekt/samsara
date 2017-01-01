@@ -185,14 +185,18 @@ define(function(require, exports, module) {
      *
      * @method setContent
      * @param content {String|DocumentFragment} HTML content
+     * @param callback {Function}
      */
-    Surface.prototype.setContent = function setContent(content){
+    Surface.prototype.setContent = function setContent(content,callback){
         if (this.content !== content){
             this.content = content;
 
             if (this._currentTarget){
                 dirtyQueue.push(function(){
                     DOMOutput.applyContent(this._currentTarget, content);
+                    if(typeof callback === 'function') {
+                      callback(this._currentTarget);
+                    }
                 }.bind(this));
             }
         }
