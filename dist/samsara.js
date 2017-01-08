@@ -4728,7 +4728,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                dirtyQueue.push(function(){
 	                    DOMOutput.applyContent(this._currentTarget, content);
 	                    if(typeof callback === 'function') {
-	                      callback(this._currentTarget);
+	                      callback(this);
 	                    }
 	                }.bind(this));
 	            }
